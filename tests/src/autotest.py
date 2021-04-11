@@ -1,52 +1,67 @@
 #!/usr/local/bin/python3
+import os
+import sys
 import datetime
+import unittest
 from selenium import webdriver
-#from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException
 
-def main(driver: webdriver):
-    """
-    Googleで検索を実行する
-    :param browser: webdriver
-    """
-    # スクリーンショットのファイル名用に日付を取得
-    dt = datetime.datetime.today()
-    dtstr = dt.strftime("%Y%m%d%H%M%S")
+SELENIUM_HUB = 'http://selenium-hub:4444/wd/hub'
 
-    # Googleにアクセス
-    driver.get('https://www.google.co.jp/')
-    WebDriverWait(driver, 15).until(EC.presence_of_all_elements_located)
+class SeleiumTests(unittest.TestCase):
+    def test_title(self):
+        self.driver.get('https://www.google.co.jp/')
+        WebDriverWait(self.driver, 15).until(EC.presence_of_all_elements_located)
+        method_name = sys._getframe().f_code.co_name
+        self.__screenshot(fname = method_name)
+        self.assertTrue(self.driver.title == 'Google')
 
-   # キーワードの入力
-    search_box = driver.find_element_by_name("q")
-    search_box.send_keys('docker selenium')
+    def __screenshot(self, fname):
+        dt = datetime.datetime.today()
+        dtstr = dt.strftime("%Y%m%d%H%M%S")
+        browser = self.driver.capabilities['browserName']
+        self.driver.save_screenshot("images/%s/%s_%s.png" % (browser, fname, dtstr))
 
-    # 検索実行
-    search_box.submit()
-    WebDriverWait(driver, 15).until(EC.presence_of_all_elements_located)
+class ChromeTests(SeleiumTests):
+    def setUp(self):
+        self.driver = webdriver.Remote(
+            desired_capabilities=DesiredCapabilities.CHROME,
+            command_executor=SELENIUM_HUB
+        )
 
-    # スクリーンショット
-    driver.save_screenshot('images/' + dtstr + '.png')
+class EdgeTests(SeleiumTests):
+    def setUp(self):
+        self.driver = webdriver.Remote(
+            desired_capabilities=DesiredCapabilities.EDGE,
+            command_executor=SELENIUM_HUB
+        )
 
-if __name__ == '__main__':
-    try:
-        #browser = webdriver.Firefox()  # 普通のFilefoxを制御する場合
-        #browser = webdriver.Chrome()   # 普通のChromeを制御する場合
+class FirefoxTests(SeleiumTests):
+    def setUp(self):
+        self.driver = webdriver.Remote(
+            desired_capabilities=DesiredCapabilities.FIREFOX,
+            command_executor=SELENIUM_HUB
+        )
 
-        # HEADLESSブラウザに接続
-        browser = webdriver.Remote(
-            command_executor='http://chrome:4444/wd/hub',
-            desired_capabilities=DesiredCapabilities.CHROME)
+class OperaTests(SeleiumTests):
+    def setUp(self):
+        self.driver = webdriver.Remote(
+            desired_capabilities=DesiredCapabilities.OPERA,
+            command_executor=SELENIUM_HUB
+        )
 
-        # Googleで検索実行
-        main(browser)
+if __name__ == "__main__":
+    TEST_LIST = [
+        ChromeTests
+        , FirefoxTests
+        # , EdgeTests   #Edge is not work
+        , OperaTests
+    ]
 
-    finally:
-        # 終了
-        browser.close()
-        browser.quit()
+    for test in TEST_LIST:
+        suite = unittest.TestLoader().loadTestsFromTestCase(test)
+        unittest.TextTestRunner(verbosity=3).run(suite)
 
